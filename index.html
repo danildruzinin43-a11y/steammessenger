@@ -582,14 +582,17 @@ function parseSteamId(identity){
 // Завершаем привязку: записываем steamID64 к аккаунту и открываем мессенджер.
 function completeSteam(steamId){
   currentUser.steam = { steamId, linked: true };
-  currentUser.nick = "Gamer_" + steamId.slice(-4);
+  // Ник генерим только при первом входе, чтобы не перезаписывать заданный пользователем
+  if(!currentUser.nick || currentUser.nick.startsWith("Gamer_")){
+    currentUser.nick = "Gamer_" + steamId.slice(-4);
+  }
   addBetaFriend();
   saveAll();
   setCookie(COOKIE_NAME, currentUser.id, 30);
   // убрать openid-параметры из адреса, чтобы не привязывалось заново при обновлении
   try{ history.replaceState({}, "", window.location.origin + window.location.pathname); }catch(e){}
   enterApp();
-  notifyMsg("Steam", "Steam привязан (ID …"+steamId.slice(-4)+")", true);
+  notifyMsg("Steam", "Вход через Steam выполнен", true);
 }
 
 // Единственный друг — «Бета» (остальные демо-друзья удалены).
@@ -1117,8 +1120,25 @@ initStory();
   const savedId=getCookie(COOKIE_NAME);
   let u = savedId ? state.users.find(x=>x.id===savedId) : null;
 
-  // Сначала завершаем привязку Steam (Steam вернул нас обратно после входа)
-  if(u && steamId){
+  // Steam вернул нас обратно после входа
+  if(steamId){
+    // Ищем аккаунт, уже привязанный к этому SteamID
+    u = state.users.find(x=>x.steam && x.steam.steamId === steamId) || u;
+    // Если аккаунта нет — создаём автоматически по SteamID (вход через Steam сам по себе)
+    if(!u){
+      u = {
+        id: newId(),
+        nick: "Gamer_" + steamId.slice(-4),
+        email: "steam_" + steamId + "@steam.local",
+        pass: "steam_" + steamId,
+        bio: "Пришёл через Steam",
+        online: true,
+        created: Date.now(),
+        steam: { steamId, linked: true }
+      };
+      state.users.push(u);
+      saveAll();
+    }
     completeSteam(steamId);
     return;
   }
