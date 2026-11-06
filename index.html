@@ -538,10 +538,12 @@ function fakeSteamPersona(nick){
 function hashStr(s){ let h=0; for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return Math.abs(h); }
 
 const STEAM_OPENID = "https://steamcommunity.com/openid/login";
-// Привязанный к сайту адрес, куда Steam вернёт пользователя после входа.
-// Steam НЕ принимает file:// — он принимает только http:// или https://.
-// Если сайт открыт просто файлом, вход через Steam не сработает. Ниже — автоопределение.
+// Полный адрес сайта (протокол + домен + путь). Steam вернёт пользователя на return_to.
+// Для GitHub Pages путь важен (например .../steammessenger/), иначе Steam вернёт на корень → 404.
 let APP_URL = (window.location.protocol === "http:" || window.location.protocol === "https:")
+  ? window.location.origin + window.location.pathname.replace(/\/+$/,"")
+  : "";
+let REALM_URL = (window.location.protocol === "http:" || window.location.protocol === "https:")
   ? window.location.origin
   : "";
 
@@ -550,9 +552,9 @@ let APP_URL = (window.location.protocol === "http:" || window.location.protocol 
 // своей учёткой Steam, и Steam возвращает вас на наш сайт с вашим SteamID в адресе.
 function steamAuth(){
   // Автоопределение каждый раз при нажатии кнопки.
-  APP_URL = (window.location.protocol === "http:" || window.location.protocol === "https:")
-    ? window.location.origin
-    : "";
+  const isHttp = (window.location.protocol === "http:" || window.location.protocol === "https:");
+  APP_URL = isHttp ? window.location.origin + window.location.pathname.replace(/\/+$/,"") : "";
+  REALM_URL = isHttp ? window.location.origin : "";
   // Если сайт открыт как файл — Steam не примет вход. Объясняем по-русски.
   if(!APP_URL || !/^https?:\/\//.test(APP_URL)){
     alert("Похоже, сайт открыт как файл (file://). Steam не умеет возвращать пользователя на file://-адреса и выдаёт «invalid return protocol».\n\nВместо двойного клика откройте сайт через локальный сервер:\n1) Запустите в PowerShell (в папке сайта):  .\\run-server.ps1\n2) Откройте в браузере:  http://localhost:3000\n\nТогда вход через Steam заработает (без установки чего-либо).\n\nЕсли хотите зелёный замок https:// — загрузите сайт на хостинг или GitHub Pages.");
@@ -563,7 +565,7 @@ function steamAuth(){
     "openid.ns": "http://specs.openid.net/auth/2.0",
     "openid.mode": "checkid_setup",
     "openid.return_to": returnTo,
-    "openid.realm": APP_URL,
+    "openid.realm": REALM_URL,
     "openid.identity": "http://specs.openid.net/auth/2.0/identifier_select",
     "openid.claimed_id": "http://specs.openid.net/auth/2.0/identifier_select",
   });
